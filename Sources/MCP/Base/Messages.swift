@@ -278,7 +278,7 @@ public protocol Notification: Hashable, Codable, Sendable {
 /// A type-erased notification for message handling
 struct AnyNotification: Notification, Sendable {
     static var name: String { "" }
-    typealias Parameters = Empty
+    typealias Parameters = Value
 }
 
 extension AnyNotification {
