@@ -86,4 +86,30 @@ struct NotificationTests {
 
         #expect(decoded.method == InitializedNotification.name)
     }
+
+    @Test("Resource updated notification with parameters")
+    func testResourceUpdatedNotification() throws {
+        let params = ResourceUpdatedNotification.Parameters(uri: "test://resource")
+        let notification = ResourceUpdatedNotification.message(params)
+
+        #expect(notification.method == ResourceUpdatedNotification.name)
+        #expect(notification.params.uri == "test://resource")
+
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+
+        let data = try encoder.encode(notification)
+
+        // Verify the exact JSON structure
+        let json = try JSONDecoder().decode([String: Value].self, from: data)
+        #expect(json["jsonrpc"] == "2.0")
+        #expect(json["method"] == "notifications/resources/updated")
+        #expect(json["params"] != nil)
+        #expect(json.count == 3, "Should contain jsonrpc, method, and params fields")
+
+        // Verify we can decode it back
+        let decoded = try decoder.decode(Message<ResourceUpdatedNotification>.self, from: data)
+        #expect(decoded.method == ResourceUpdatedNotification.name)
+        #expect(decoded.params.uri == "test://resource")
+    }
 }
