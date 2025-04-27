@@ -112,4 +112,61 @@ struct NotificationTests {
         #expect(decoded.method == ResourceUpdatedNotification.name)
         #expect(decoded.params.uri == "test://resource")
     }
+
+    @Test("AnyNotification decoding - without params")
+    func testAnyNotificationDecodingWithoutParams() throws {
+        // Test decoding when params field is missing
+        let jsonString = """
+            {"jsonrpc":"2.0","method":"notifications/initialized"}
+            """
+        let data = jsonString.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(AnyMessage.self, from: data)
+
+        #expect(decoded.method == InitializedNotification.name)
+    }
+
+    @Test("AnyNotification decoding - with null params")
+    func testAnyNotificationDecodingWithNullParams() throws {
+        // Test decoding when params field is null
+        let jsonString = """
+            {"jsonrpc":"2.0","method":"notifications/initialized","params":null}
+            """
+        let data = jsonString.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(AnyMessage.self, from: data)
+
+        #expect(decoded.method == InitializedNotification.name)
+    }
+
+    @Test("AnyNotification decoding - with empty params")
+    func testAnyNotificationDecodingWithEmptyParams() throws {
+        // Test decoding when params field is empty
+        let jsonString = """
+            {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
+            """
+        let data = jsonString.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(AnyMessage.self, from: data)
+
+        #expect(decoded.method == InitializedNotification.name)
+    }
+
+    @Test("AnyNotification decoding - with non-empty params")
+    func testAnyNotificationDecodingWithNonEmptyParams() throws {
+        // Test decoding when params field has values
+        let jsonString = """
+            {"jsonrpc":"2.0","method":"notifications/resources/updated","params":{"uri":"test://resource"}}
+            """
+        let data = jsonString.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(AnyMessage.self, from: data)
+
+        #expect(decoded.method == ResourceUpdatedNotification.name)
+        #expect(decoded.params.objectValue?["uri"]?.stringValue == "test://resource")
+    }
 }
