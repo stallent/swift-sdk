@@ -278,7 +278,7 @@ public protocol Notification: Hashable, Codable, Sendable {
 /// A type-erased notification for message handling
 struct AnyNotification: Notification, Sendable {
     static var name: String { "" }
-    typealias Parameters = Empty
+    typealias Parameters = Value
 }
 
 extension AnyNotification {
@@ -325,10 +325,11 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
         }
         method = try container.decode(String.self, forKey: .method)
 
-        // Handle params field being optional
-        if N.Parameters.self == Empty.self {
-            // For Empty parameters, use Empty() if params is missing or null
-            params = Empty() as! N.Parameters
+        if N.Parameters.self is NotRequired.Type {
+            // For NotRequired parameters, use decodeIfPresent or init()
+            params =
+                (try container.decodeIfPresent(N.Parameters.self, forKey: .params)
+                    ?? (N.Parameters.self as! NotRequired.Type).init() as! N.Parameters)
         } else if let value = try? container.decode(N.Parameters.self, forKey: .params) {
             // If params exists and can be decoded, use it
             params = value

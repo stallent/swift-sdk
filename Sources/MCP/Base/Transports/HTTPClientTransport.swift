@@ -221,9 +221,9 @@ public actor HTTPClientTransport: Actor, Transport {
 
             // Check response status
             guard httpResponse.statusCode == 200 else {
-                // For servers that don't support streaming from this endpoint
-                // they should return a 405 NOT ALLOWED. So lets cancel the task
-                // instead of retrying
+                // If the server returns 405 Method Not Allowed,
+                // it indicates that the server doesn't support SSE streaming.
+                // We should cancel the task instead of retrying the connection.
                 if httpResponse.statusCode == 405 {
                     self.streamingTask?.cancel()
                 }
@@ -252,12 +252,16 @@ public actor HTTPClientTransport: Actor, Transport {
                 buffer.append(char)
 
                 // Process complete lines
-                while let newlineIndex = buffer.firstIndex(of: "\n") {
-                    let line = buffer[..<newlineIndex]
+                while let newlineIndex = buffer.utf8.firstIndex(where: { $0 == 10 }) {
+                    var line = buffer[..<newlineIndex]
+                    if line.hasSuffix("\r") {
+                        line = line.dropLast()
+                    }
+
                     buffer = String(buffer[buffer.index(after: newlineIndex)...])
 
                     // Empty line marks the end of an event
-                    if line.isEmpty || line == "\r" || line == "\n" || line == "\r\n" {
+                    if line.isEmpty {
                         if !eventData.isEmpty {
                             // Process the event
                             if eventType == "id" {
@@ -282,6 +286,10 @@ public actor HTTPClientTransport: Actor, Transport {
                         continue
                     }
 
+                    if line.hasSuffix("\r") {
+                        line = line.dropLast()
+                    }
+                    
                     // Lines starting with ":" are comments
                     if line.hasPrefix(":") { continue }
 
