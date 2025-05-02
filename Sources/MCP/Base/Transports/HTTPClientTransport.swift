@@ -21,7 +21,7 @@ public actor HTTPClientTransport: Actor, Transport {
     public init(
         endpoint: URL,
         configuration: URLSessionConfiguration = .default,
-        streaming: Bool = false,
+        streaming: Bool = true,
         logger: Logger? = nil
     ) {
         self.init(
@@ -289,7 +289,7 @@ public actor HTTPClientTransport: Actor, Transport {
                     if line.hasSuffix("\r") {
                         line = line.dropLast()
                     }
-                    
+
                     // Lines starting with ":" are comments
                     if line.hasPrefix(":") { continue }
 
