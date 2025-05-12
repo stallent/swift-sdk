@@ -337,7 +337,8 @@ public actor Server {
             } catch {
                 // Only add errors to response for requests (notifications don't have responses)
                 if case .request(let request) = item {
-                    let mcpError = error as? MCPError ?? MCPError.internalError(error.localizedDescription)
+                    let mcpError =
+                        error as? MCPError ?? MCPError.internalError(error.localizedDescription)
                     responses.append(AnyMethod.response(id: request.id, error: mcpError))
                 }
             }
@@ -365,7 +366,9 @@ public actor Server {
     ///   - request: The request to handle
     ///   - sendResponse: Whether to send the response immediately (true) or return it (false)
     /// - Returns: The response when sendResponse is false
-    private func handleRequest(_ request: Request<AnyMethod>, sendResponse: Bool = true) async throws -> Response<AnyMethod>? {
+    private func handleRequest(_ request: Request<AnyMethod>, sendResponse: Bool = true)
+        async throws -> Response<AnyMethod>?
+    {
         // Check if this is a pre-processed error request (empty method)
         if request.method.isEmpty && !sendResponse {
             // This is a placeholder for an invalid request that couldn't be parsed in batch mode
@@ -478,26 +481,25 @@ public actor Server {
                 throw MCPError.invalidRequest("Server is already initialized")
             }
 
-            // Validate protocol version
-            guard Version.latest == params.protocolVersion else {
-                throw MCPError.invalidRequest(
-                    "Unsupported protocol version: \(params.protocolVersion)")
-            }
-
             // Call initialization hook if registered
             if let hook = initializeHook {
                 try await hook(params.clientInfo, params.capabilities)
             }
 
-            // Set initial state
+            // Perform version negotiation
+            let clientRequestedVersion = params.protocolVersion
+            let negotiatedProtocolVersion = Version.negotiate(
+                clientRequestedVersion: clientRequestedVersion)
+
+            // Set initial state with the negotiated protocol version
             await self.setInitialState(
                 clientInfo: params.clientInfo,
                 clientCapabilities: params.capabilities,
-                protocolVersion: params.protocolVersion
+                protocolVersion: negotiatedProtocolVersion
             )
 
             return Initialize.Result(
-                protocolVersion: Version.latest,
+                protocolVersion: negotiatedProtocolVersion,
                 capabilities: await self.capabilities,
                 serverInfo: self.serverInfo,
                 instructions: nil
