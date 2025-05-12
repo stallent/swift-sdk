@@ -242,10 +242,10 @@ public actor Server {
     @discardableResult
     public func withMethodHandler<M: Method>(
         _ type: M.Type,
-        handler: @escaping @Sendable (M.Parameters) async throws -> M.Result
+        handler: @escaping @Sendable (ID, M.Parameters) async throws -> M.Result
     ) -> Self {
         methodHandlers[M.name] = TypedRequestHandler { (request: Request<M>) -> Response<M> in
-            let result = try await handler(request.params)
+            let result = try await handler(request.id, request.params)
             return Response(id: request.id, result: result)
         }
         return self
@@ -274,11 +274,22 @@ public actor Server {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
 
         let responseData = try encoder.encode(response)
-        try await connection.send(responseData)
+        
+        // For streamable responses, we must pass along the request id
+        // from the initial request. This allows the trasnport to write
+        // to the proper response stream for the POST. Otherwise use
+        // the normal send which writes to the GET stream
+        if let st = connection as? ServerTransport {
+            try await st.send(requestId: response.id, data: responseData)
+        } else {
+            try await connection.send(responseData)
+        }
+        
     }
 
     /// Send a notification to connected clients
-    public func notify<N: Notification>(_ notification: Message<N>) async throws {
+    /// optional requestId allows Tools to send notes to the response stream for that specific tool call
+    public func notify<N: Notification>(_ notification: Message<N>, requestId: ID? = nil) async throws {
         guard let connection = connection else {
             throw MCPError.internalError("Server connection not initialized")
         }
@@ -287,7 +298,18 @@ public actor Server {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
 
         let notificationData = try encoder.encode(notification)
-        try await connection.send(notificationData)
+        
+        
+        // If a Tool handler wants to send notes during its call, its able
+        // to pass in its request id.  So IF we have a request id, and
+        // the transport that was added is a ServerTransport (i don't love this approach fwiw)
+        // then pass to a transport send that can do the mapping. Otherwise, use
+        // the normal send which will write to the GET stream
+        if let id = requestId, let st = self.connection as? ServerTransport {
+            try await st.send(requestId: id, data: notificationData)
+        } else {
+            try await connection.send(notificationData)
+        }
     }
 
     /// A JSON-RPC batch containing multiple requests and/or notifications
@@ -472,7 +494,7 @@ public actor Server {
         initializeHook: (@Sendable (Client.Info, Client.Capabilities) async throws -> Void)?
     ) {
         // Initialize
-        withMethodHandler(Initialize.self) { [weak self] params in
+        withMethodHandler(Initialize.self) { [weak self] id, params in
             guard let self = self else {
                 throw MCPError.internalError("Server was deallocated")
             }
@@ -507,7 +529,7 @@ public actor Server {
         }
 
         // Ping
-        withMethodHandler(Ping.self) { _ in return Empty() }
+        withMethodHandler(Ping.self) { _, _ in return Empty() }
     }
 
     private func setInitialState(

@@ -18,3 +18,12 @@ public protocol Transport: Actor {
     /// Receives data in an async sequence
     func receive() -> AsyncThrowingStream<Data, Swift.Error>
 }
+
+// Temporary Solution until discussion is had.
+public protocol ServerTransport : Transport {
+    
+    // this allows the server to give details to the transport
+    // so it can know which stream to write to.
+    func send(requestId:RequestID, data: Data) async throws
+    
+}
